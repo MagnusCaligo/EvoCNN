@@ -62,8 +62,13 @@ def _initalizeConvolutionalLayer(config):
     layer["numFeatureMaps"] = random.randint(1,int(config["maxFeatureMaps"]))
     layer["strideWidth"] = random.randint(1, int(config["maxStrideWidth"]))
     layer["strideHeight"] = random.randint(1, int(config["maxStrideHeight"]))
-    layer["standardDeviation"] = random.uniform(0, int(config["maxFilterStandardDeviation"]))
-    layer["mean"] = random.uniform(0, int(config["maxFilterMean"]))
+    sd = []
+    mean = []
+    for i in range(int(layer["numFeatureMaps"])):
+        sd.append(random.uniform(0, int(config["maxFilterStandardDeviation"])))
+        mean.append(random.uniform(0, int(config["maxFilterMean"])))
+    layer["standardDeviation"] = sd
+    layer["mean"] = mean
     return layer
 
 def _initalizePoolingLayer(config):
@@ -74,8 +79,6 @@ def _initalizePoolingLayer(config):
     layer["height"] = random.randint(1, int(config["maxFilterWidth"]))
     layer["strideWidth"] = random.randint(1, int(config["maxStrideWidth"]))
     layer["strideHeight"] = random.randint(1, int(config["maxStrideHeight"]))
-    layer["standardDeviation"] = random.uniform(0, int(config["maxFilterStandardDeviation"]))
-    layer["mean"] = random.uniform(0, int(config["maxFilterMean"]))
     return layer
 
 def _initalizeFCLayer(config):
@@ -89,51 +92,56 @@ def _initalizeFCLayer(config):
 
 #used for testing implementation of network architecture; should not be used anywhere else
 def runGeneomeOnImage(geneome, img):
-    imgTemp1 = copy.copy(img)
-    imgTemp2 = copy.copy(img)
+    imgTemp1 = copy.deepcopy(img)
+    imgTemp2 = copy.deepcopy(img)
     for index, layer in enumerate(geneome):
+        print "Layer type:", layer["type"]
+        width, height, channels = imgTemp1.shape
         if layer['type'] == "conv":
-            pass
+            kernelSize = (int(layer["width"]), int(layer["height"]))
+            stride = (int(layer["strideWidth"]), int(layer["strideHeight"]))
+            outputWidth = int((width - ((kernelSize[0])))/stride[0])
+            outputHeight = int((height - ((kernelSize[1])))/stride[1])
+            imgTemp2 = np.zeros((outputHeight, outputWidth, int(layer["numFeatureMaps"])))
+
+            for i in range(int(layer["numFeatureMaps"])):
+                kernel = np.random.normal(float(layer["mean"][i]), float(layer["standardDeviation"][i]), kernelSize)
+                featureMap = convolve(imgTemp1, kernelSize, kernel, stride, layer["operation"])
+                imgTemp2[:,:,i] = featureMap
+
+            imgTemp1 = copy.deepcopy(imgTemp2)
+
         elif layer['type'] == 'pool':
-            pass
+            imgTemp1 = copy.deepcopy(imgTemp2)
         elif layer['type'] == 'fullyConnected':
-            pass
+            imgTemp1 = copy.copy(imgTemp2)
+
+    return imgTemp1
 
 
-def convolve(filterMap, kernelSize, kernel, stride, numFilters):
+def convolve(filterMap, kernelSize, kernel, stride, convolutionType):
     height, width, channels = filterMap.shape
-    #Find center of kernelSize
-    kX = (kernelSize[0] / 2) + 1
-    kY = (kernelSize[1] / 2) + 1
+    kernel = np.repeat(kernel[:,:, np.newaxis], channels, axis=2)
 
-    #Check if kernelSize has an even side
-    if kernelSize[0] % 2 == 0:
-        kX = kernelSize[0] /2
-    if kernelSize[1] % 2 == 0:
-        kY = kernelSize[1] /2
-
-    outputWidth = width - ((kernelSize[0]))
-    outputHeight = height - ((kernelSize[1]))
-    outputFilters = np.zeros((outputHeight, outputWidth, numFilters), dtype="float32")
-
-    print "input size", filterMap.shape
-    print "output size", outputFilters.shape
-
+    outputWidth = int((width - ((kernelSize[0])))/stride[0])
+    outputHeight = int((height - ((kernelSize[1])))/stride[1])
+    outputFilters = np.zeros((outputHeight, outputWidth), dtype="float32")
 
     for y in np.arange(0, outputHeight):
         for x in np.arange(0, outputWidth):
-            roiy1 = y
-            roiy2 = y + (kernelSize[1])
-            roix1 = x
-            roix2 = x + (kernelSize[0])
-            roi = filterMap[roiy1:roiy2, roix1:roix2, 0]
-            print "roi size", roi.shape, y, x, roix1, roix2, outputWidth
-            k = (roi * kernel).sum()
-            #outputFilters[y,x,0] = filterMap[y,x,1]
-            outputFilters[y,x,0] = k
+            roiy1 = (y * stride[1])
+            roiy2 = (y * stride[1])  + (kernelSize[1])
+            roix1 = (x * stride[0])
+            roix2 = (x * stride[0]) + (kernelSize[0])
+            roi = filterMap[roiy1:roiy2, roix1:roix2, 0:channels]
+            #print roi.shape, kernel.shape
+            if convolutionType == "sum":
+                k = (roi * kernel).sum()
+            elif convolutionType == "mean":
+                k = (roi * kernel).mean()
+            outputFilters[y,x] = k
 
-    #output = rescale_intensity(output, in_range(0,255))
-    outputFilters = (outputFilters * 255).astype("uint8")
+    #outputFilters = (outputFilters * 255).astype("uint8")
     return outputFilters
             
         
