@@ -1,5 +1,5 @@
-#Implementation of EvoCNN
+# Implementation of EvoCNN
 
-###Paper located here: https://arxiv.org/pdf/1710.10741.pdf
+### Paper located here: https://arxiv.org/pdf/1710.10741.pdf
 
-###This implementation is a work in progress
+### This implementation is a work in progress
