@@ -1,4 +1,5 @@
 import cv2
+import math
 import numpy as np
 import random
 import copy
@@ -52,6 +53,28 @@ def initalizePopulation(config):
         population.append(part1 + part2)
     return population
 
+def trainEvoCnn(population, config, trainingData, testingData, batchSize, iterations=100):
+    for genenome in population:
+        currentIteration = 0
+        evaluationSteps = len(testingData)/batchSize
+        while currentIteration <= iterations:
+            runGeneration() #TODO
+            if currentIteration == iterations:
+                accuracy = []
+                j = 0
+                while j <= evaluationSteps:
+                
+
+
+
+
+def runEvoCnn(population, config, fitnessFunction, maxIterations=100):
+    newPop = []
+    for geneome in population:
+        geneome["fitness"] = fitnessFunction(geneome, config)
+
+
+
 
 def _initalizeConvolutionalLayer(config):
     layer = {}
@@ -96,8 +119,8 @@ def runGeneomeOnImage(geneome, img):
     imgTemp2 = copy.deepcopy(img)
     for index, layer in enumerate(geneome):
         print "Layer Type:", layer["type"],
-        height, width, channels = imgTemp1.shape
         if layer['type'] == "conv":
+            height, width, channels = imgTemp1.shape
             kernelSize = (int(layer["width"]), int(layer["height"]))
             stride = (int(layer["strideWidth"]), int(layer["strideHeight"]))
             outputWidth = int((width - ((kernelSize[0])))/stride[0])
@@ -120,6 +143,7 @@ def runGeneomeOnImage(geneome, img):
             imgTemp1 = copy.deepcopy(imgTemp2)
 
         elif layer['type'] == 'pool':
+            height, width, channels = imgTemp1.shape
             kernelSize = (int(layer["width"]), int(layer["height"]))
             stride = (int(layer["strideWidth"]), int(layer["strideHeight"]))
             outputWidth = int((width - ((kernelSize[0])))/stride[0])
@@ -137,11 +161,17 @@ def runGeneomeOnImage(geneome, img):
             imgTemp1 = copy.deepcopy(imgTemp2)
 
         elif layer['type'] == 'fullyConnected':
-            imgTemp1 = copy.copy(imgTemp2)
-            numNeurons = layer["numNeurons"]
-            standardDeviation = layer["standardDeviation"]
-            mean = layer["mean"]
-            print "Number of Neurons:", numNeurons
+            numNeurons = int(layer["numOfNeurons"])
+            standardDeviation = float(layer["standardDeviation"])
+            mean = float(layer["mean"])
+            print "Number of Neurons:", numNeurons, "Mean:", mean, "Standard Deviation", standardDeviation
+            flattenedInput = imgTemp1.flatten()
+            output = np.zeros((numNeurons))
+            for i in range(numNeurons):
+                neuronInput = (flattenedInput * np.random.normal(mean, standardDeviation, flattenedInput.shape)).sum()
+                print "Neuron Input", neuronInput
+                output[i] = 1/(1 + math.exp(-float(neuronInput)))
+            imgTemp1 = output
 
     return imgTemp1
 

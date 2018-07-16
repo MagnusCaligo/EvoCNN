@@ -3,6 +3,7 @@ import numpy
 import evoCnn
 import math
 from evoCnn import *
+import sys
 
 
 if __name__ == "__main__":
@@ -11,9 +12,10 @@ if __name__ == "__main__":
     img = cv2.imread("lena.png")
 
     pic1 = runGeneomeOnImage(population[0], img)
-    pic1 = pic1[:,:,0:3]
-    pic1= (pic1*255).astype("uint8")
+    print pic1
     print "Result shape:", pic1.shape
+    '''pic1 = pic1[:,:,0:3]
+    pic1= (pic1*255).astype("uint8")
     while True:
         cv2.imshow("Original", img)
         cv2.imshow("Output1", pic1)
@@ -21,6 +23,7 @@ if __name__ == "__main__":
         k = cv2.waitKey(1)
         if k == ord('q'):
             break
+            '''
 
     '''
     kernel = np.zeros((2,2))
