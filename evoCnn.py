@@ -37,7 +37,7 @@ def initalizePopulation(config):
         while len(part1) < randVal:
             r = random.uniform(0,1)
             layer = None
-            if r <= 0.5:
+            if r <= float(config["chanceOfConvolutionalLayer"]):
                 layer = _initalizeConvolutionalLayer(config)
             else:
                 layer = _initalizePoolingLayer(config)
@@ -95,37 +95,78 @@ def runGeneomeOnImage(geneome, img):
     imgTemp1 = copy.deepcopy(img)
     imgTemp2 = copy.deepcopy(img)
     for index, layer in enumerate(geneome):
-        print "Layer type:", layer["type"]
-        width, height, channels = imgTemp1.shape
+        print "Layer Type:", layer["type"],
+        height, width, channels = imgTemp1.shape
         if layer['type'] == "conv":
             kernelSize = (int(layer["width"]), int(layer["height"]))
             stride = (int(layer["strideWidth"]), int(layer["strideHeight"]))
             outputWidth = int((width - ((kernelSize[0])))/stride[0])
             outputHeight = int((height - ((kernelSize[1])))/stride[1])
+            print "Kernel Size:", kernelSize, "Stride:", stride, "Feature Maps:", layer["numFeatureMaps"]
+            if outputWidth < 0:
+                outputWidth = kernelSize[0]
+            if outputHeight < 0:
+                outputHeight = kernelSize[1]
             imgTemp2 = np.zeros((outputHeight, outputWidth, int(layer["numFeatureMaps"])))
 
             for i in range(int(layer["numFeatureMaps"])):
                 kernel = np.random.normal(float(layer["mean"][i]), float(layer["standardDeviation"][i]), kernelSize)
                 featureMap = convolve(imgTemp1, kernelSize, kernel, stride, layer["operation"])
+                #print "Final Shape:", imgTemp2.shape, outputWidth, outputHeight, kernelSize, stride
+                #print "Final:", width, height
+                #print "Final Kernel:", kernel
                 imgTemp2[:,:,i] = featureMap
 
             imgTemp1 = copy.deepcopy(imgTemp2)
 
         elif layer['type'] == 'pool':
+            kernelSize = (int(layer["width"]), int(layer["height"]))
+            stride = (int(layer["strideWidth"]), int(layer["strideHeight"]))
+            outputWidth = int((width - ((kernelSize[0])))/stride[0])
+            outputHeight = int((height - ((kernelSize[1])))/stride[1])
+            print "Kernel Size:", kernelSize, "Stride:", stride, "Operation:", layer["operation"]
+            if outputWidth <= 0:
+                outputWidth = kernelSize[0]
+            if outputHeight <= 0:
+                outputHeight = kernelSize[1]
+            imgTemp2 = np.zeros((outputHeight, outputWidth, channels))
+            for i in range(channels):
+                kernel = np.array([])
+                featureMap = convolve(imgTemp1[:,:,i], kernelSize, kernel, stride, layer["operation"])
+                imgTemp2[:,:,i] = featureMap
             imgTemp1 = copy.deepcopy(imgTemp2)
+
         elif layer['type'] == 'fullyConnected':
             imgTemp1 = copy.copy(imgTemp2)
+            numNeurons = layer["numNeurons"]
+            standardDeviation = layer["standardDeviation"]
+            mean = layer["mean"]
+            print "Number of Neurons:", numNeurons
 
     return imgTemp1
 
 
-def convolve(filterMap, kernelSize, kernel, stride, convolutionType):
-    height, width, channels = filterMap.shape
-    kernel = np.repeat(kernel[:,:, np.newaxis], channels, axis=2)
+def convolve(filterMap, kernelSize, srcKernel, stride, convolutionType):
+    kernel = None
+    if convolutionType not in ["average", "max", "min"]:
+        height, width, channels = filterMap.shape
+        kernel = np.transpose(srcKernel)
+        kernel = np.repeat(kernel[:,:, np.newaxis], channels, axis=2)
+    else:
+        filterMap = np.repeat(filterMap[:,:, np.newaxis], 1, axis=2)
+        height, width, channels = filterMap.shape
+        channels = 1
 
     outputWidth = int((width - ((kernelSize[0])))/stride[0])
     outputHeight = int((height - ((kernelSize[1])))/stride[1])
+    if outputWidth <= 0:
+        outputWidth = kernelSize[0]
+    if outputHeight <= 0:
+        outputHeight = kernelSize[1]
     outputFilters = np.zeros((outputHeight, outputWidth), dtype="float32")
+    #print "Output Shape:", outputFilters.shape, outputWidth, outputHeight, kernelSize, stride
+    #print "Output:", width, height
+    #print "Convolve Kernel:", kernel[:,:,0]
 
     for y in np.arange(0, outputHeight):
         for x in np.arange(0, outputWidth):
@@ -134,11 +175,24 @@ def convolve(filterMap, kernelSize, kernel, stride, convolutionType):
             roix1 = (x * stride[0])
             roix2 = (x * stride[0]) + (kernelSize[0])
             roi = filterMap[roiy1:roiy2, roix1:roix2, 0:channels]
-            #print roi.shape, kernel.shape
+            if 0 in roi.shape:
+                continue
+            '''print roi.shape, kernel.shape
+            print kernelSize
+            print roiy1, roiy2
+            '''
             if convolutionType == "sum":
                 k = (roi * kernel).sum()
             elif convolutionType == "mean":
                 k = (roi * kernel).mean()
+            elif convolutionType == "average":
+                k = roi.sum()/roi.size
+            elif convolutionType == "max":
+                #print "Maxing:", roi.shape, kernelSize, roix1, roix2, filterMap.shape
+                k = np.amax(roi)
+            elif convolutionType == "min":
+                #print "Minning:", roi.shape, kernelSize, roix1, roix2, filterMap.shape
+                k = np.amin(roi)
             outputFilters[y,x] = k
 
     #outputFilters = (outputFilters * 255).astype("uint8")

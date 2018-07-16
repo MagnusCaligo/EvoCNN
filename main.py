@@ -11,10 +11,9 @@ if __name__ == "__main__":
     img = cv2.imread("lena.png")
 
     pic1 = runGeneomeOnImage(population[0], img)
-    print "Shape:", pic1.shape
     pic1 = pic1[:,:,0:3]
-    print "Shape:", pic1.shape
     pic1= (pic1*255).astype("uint8")
+    print "Result shape:", pic1.shape
     while True:
         cv2.imshow("Original", img)
         cv2.imshow("Output1", pic1)
